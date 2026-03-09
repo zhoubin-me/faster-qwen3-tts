@@ -202,7 +202,7 @@ class FasterQwen3TTS:
     def _resolve_voice_clone_prompt(
         self,
         input_ids,
-        ref_audio: Union[str, Path],
+        ref_audio: Optional[Union[str, Path]],
         ref_text: str,
         xvec_only: bool,
         append_silence: bool,
@@ -215,6 +215,8 @@ class FasterQwen3TTS:
                 ref_text=ref_text,
                 voice_clone_prompt=voice_clone_prompt,
             )
+        if ref_audio is None:
+            raise ValueError("ref_audio is required when voice_clone_prompt is not provided")
 
         return self._resolve_voice_clone_prompt_from_reference(
             input_ids=input_ids,
@@ -285,6 +287,7 @@ class FasterQwen3TTS:
                     "ref_text is required when voice_clone_prompt uses ICL mode."
                 )
             ref_texts = [self.model._build_ref_text(ref_text)]
+            # NOTE: single ref_text is shared across all ICL items in the batch.
             ref_id = self.model._tokenize_texts(ref_texts)[0]
             ref_ids = [ref_id if is_icl else None for is_icl in vcp["icl_mode"]]
         else:
@@ -345,9 +348,9 @@ class FasterQwen3TTS:
     def _prepare_generation(
         self,
         text: str,
-        ref_audio: Union[str, Path],
-        ref_text: str,
         language: str,
+        ref_audio: Optional[Union[str, Path]] = None,
+        ref_text: str = "",
         xvec_only: bool = True,
         non_streaming_mode: bool = False,
         append_silence: bool = True,
@@ -671,8 +674,8 @@ class FasterQwen3TTS:
         self,
         text: str,
         language: str,
-        ref_audio: Union[str, Path],
-        ref_text: str,
+        ref_audio: Optional[Union[str, Path]] = None,
+        ref_text: str = "",
         voice_clone_prompt: Optional[Dict[str, Any]] = None,
         max_new_tokens: int = 2048,
         min_new_tokens: int = 2,
@@ -691,8 +694,8 @@ class FasterQwen3TTS:
         Args:
             text: Text to synthesize
             language: Target language
-            ref_audio: Path to reference audio file
-            ref_text: Transcription of reference audio
+            ref_audio: Path to reference audio file. Required when `voice_clone_prompt` is not provided.
+            ref_text: Transcription of reference audio.
             max_new_tokens: Maximum tokens to generate
             min_new_tokens: Minimum tokens before EOS is allowed
             temperature: Sampling temperature
@@ -716,10 +719,10 @@ class FasterQwen3TTS:
         from .generate import fast_generate
 
         m, talker, config, tie, tam, tth, tpe, ref_codes = self._prepare_generation(
-            text,
-            ref_audio,
-            ref_text,
+            text=text,
             language=language,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
             xvec_only=xvec_only,
             non_streaming_mode=non_streaming_mode,
             append_silence=append_silence,
@@ -789,8 +792,8 @@ class FasterQwen3TTS:
         self,
         text: str,
         language: str,
-        ref_audio: Union[str, Path],
-        ref_text: str,
+        ref_audio: Optional[Union[str, Path]] = None,
+        ref_text: str = "",
         voice_clone_prompt: Optional[Dict[str, Any]] = None,
         max_new_tokens: int = 2048,
         min_new_tokens: int = 2,
@@ -814,8 +817,8 @@ class FasterQwen3TTS:
         Args:
             text: Text to synthesize
             language: Target language
-            ref_audio: Path to reference audio file
-            ref_text: Transcription of reference audio
+            ref_audio: Path to reference audio file. Required when `voice_clone_prompt` is not provided.
+            ref_text: Transcription of reference audio.
             max_new_tokens: Maximum tokens to generate
             min_new_tokens: Minimum tokens before EOS is allowed
             temperature: Sampling temperature
@@ -842,10 +845,10 @@ class FasterQwen3TTS:
         from .streaming import fast_generate_streaming, parity_generate_streaming
 
         m, talker, config, tie, tam, tth, tpe, ref_codes = self._prepare_generation(
-            text,
-            ref_audio,
-            ref_text,
+            text=text,
             language=language,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
             xvec_only=xvec_only,
             non_streaming_mode=non_streaming_mode,
             append_silence=append_silence,

@@ -437,7 +437,6 @@ spk_emb = torch.load("speaker.pt", weights_only=True).to(model.device)
 
 voice_clone_prompt = {
     "ref_spk_embedding": [spk_emb],
-    "x_vector_only_mode": [True],
 }
 
 audio_list, sr = model.generate_voice_clone(

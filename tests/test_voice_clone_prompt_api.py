@@ -56,7 +56,7 @@ def test_prepare_generation_uses_precomputed_xvec_prompt_without_prompt_extracti
 
     _m, _talker, _config, _tie, _tam, _tth, _tpe, ref_codes = model._prepare_generation(
         text="hello",
-        ref_audio="ignored.wav",
+        ref_audio=None,
         ref_text="",
         language="English",
         xvec_only=False,  # ignored when voice_clone_prompt is provided
@@ -72,7 +72,7 @@ def test_prepare_generation_rejects_missing_voice_clone_prompt_keys():
     with pytest.raises(ValueError, match="missing required keys"):
         model._prepare_generation(
             text="hello",
-            ref_audio="ignored.wav",
+            ref_audio=None,
             ref_text="",
             language="English",
             voice_clone_prompt=bad_prompt,
@@ -90,7 +90,7 @@ def test_prepare_generation_accepts_icl_prompt_with_ref_text():
 
     _m, _talker, _config, _tie, _tam, _tth, _tpe, ref_codes = model._prepare_generation(
         text="hello",
-        ref_audio="ignored.wav",
+        ref_audio=None,
         ref_text="reference text",
         language="English",
         voice_clone_prompt=icl_prompt,
@@ -102,7 +102,7 @@ def test_prepare_generation_ignores_ref_text_with_precomputed_prompt():
     model = _build_dummy_model()
     _m, _talker, _config, _tie, _tam, _tth, _tpe, ref_codes = model._prepare_generation(
         text="hello",
-        ref_audio="ignored.wav",
+        ref_audio=None,
         ref_text="this should be ignored",
         language="English",
         voice_clone_prompt=_xvec_prompt(),
@@ -122,8 +122,20 @@ def test_prepare_generation_icl_prompt_requires_ref_text():
     with pytest.raises(ValueError, match="ref_text is required"):
         model._prepare_generation(
             text="hello",
-            ref_audio="ignored.wav",
+            ref_audio=None,
             ref_text="",
             language="English",
             voice_clone_prompt=icl_prompt,
+        )
+
+
+def test_prepare_generation_requires_ref_audio_without_precomputed_prompt():
+    model = _build_dummy_model()
+    with pytest.raises(ValueError, match="ref_audio is required"):
+        model._prepare_generation(
+            text="hello",
+            ref_audio=None,
+            ref_text="",
+            language="English",
+            voice_clone_prompt=None,
         )
