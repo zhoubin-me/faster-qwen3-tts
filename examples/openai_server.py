@@ -257,7 +257,7 @@ def resolve_request_options(req: SpeechRequest) -> dict:
     Voice clone:
         `voice` maps to a configured reference-audio profile.
     Voice design:
-        `voice` maps to a configured instruction profile.
+        `voice` maps to the instruction text itself, unless --voices defines aliases.
     """
     model_type = get_loaded_model_type()
     requested_voice = (req.voice or "").strip()
@@ -301,19 +301,11 @@ def resolve_request_options(req: SpeechRequest) -> dict:
         }
 
     if model_type == "voice_design":
-        if not alias_cfg:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "VoiceDesign models require --voices config entries with "
-                    "{instruct, language}. Requested voice was not configured."
-                ),
-            )
-        instruct = alias_cfg.get("instruct")
+        instruct = alias_cfg.get("instruct") or requested_voice
         if not instruct:
             raise HTTPException(
                 status_code=400,
-                detail=f"Voice {requested_voice!r} is missing required 'instruct' config",
+                detail="VoiceDesign requests require non-empty 'voice' instruction text",
             )
         return {
             "mode": "voice_design",

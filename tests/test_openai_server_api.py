@@ -88,15 +88,55 @@ def test_voice_clone_request_uses_profile_and_request_language_override():
     }
 
 
-def test_voice_design_requires_configured_instruction_profile():
+def test_voice_design_uses_voice_text_as_instruction():
     _set_model_type("voice_design")
     openai_server.voices = {}
     openai_server.default_voice = None
     openai_server.default_language = "English"
 
-    req = openai_server.SpeechRequest(input="hello", voice="narrator")
+    req = openai_server.SpeechRequest(
+        input="hello",
+        voice="Warm, confident narrator with slight British accent",
+    )
+    options = openai_server.resolve_request_options(req)
 
-    with pytest.raises(HTTPException, match="VoiceDesign models require --voices config entries"):
+    assert options == {
+        "mode": "voice_design",
+        "language": "English",
+        "instruct": "Warm, confident narrator with slight British accent",
+    }
+
+
+def test_voice_design_alias_can_remap_instruction():
+    _set_model_type("voice_design")
+    openai_server.voices = {
+        "narrator": {
+            "instruct": "Warm, confident narrator",
+            "language": "English",
+        }
+    }
+    openai_server.default_voice = "narrator"
+    openai_server.default_language = "Auto"
+
+    req = openai_server.SpeechRequest(input="hello", voice="narrator")
+    options = openai_server.resolve_request_options(req)
+
+    assert options == {
+        "mode": "voice_design",
+        "language": "English",
+        "instruct": "Warm, confident narrator",
+    }
+
+
+def test_voice_design_requires_non_empty_instruction_text():
+    _set_model_type("voice_design")
+    openai_server.voices = {}
+    openai_server.default_voice = None
+    openai_server.default_language = "English"
+
+    req = openai_server.SpeechRequest(input="hello", voice="")
+
+    with pytest.raises(HTTPException, match="require non-empty 'voice' instruction text"):
         openai_server.resolve_request_options(req)
 
 

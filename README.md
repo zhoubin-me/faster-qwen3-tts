@@ -174,6 +174,8 @@ To expose multiple named voices, pass a JSON file with entries appropriate to th
 - CustomVoice aliases: `{"alloy": {"speaker": "aiden", "language": "English"}}`
 - VoiceDesign aliases: `{"narrator": {"instruct": "Warm, confident narrator", "language": "English"}}`
 
+For `VoiceDesign`, you can also skip `--voices` entirely and pass the design prompt directly in the request `voice` field.
+
 WAV and PCM support both streaming and non-streaming. MP3 requires `pydub` and is non-streaming only.
 
 ## Results
