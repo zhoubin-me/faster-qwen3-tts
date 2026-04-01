@@ -226,6 +226,28 @@ def detect_language_from_text(text: str) -> Optional[str]:
     return None
 
 
+def build_voice_registry(args) -> tuple[dict, Optional[str]]:
+    """Build optional voice alias/config registry from CLI args."""
+    if args.voices:
+        with open(args.voices) as f:
+            loaded_voices = json.load(f)
+        logger.info("Loaded %d voice(s) from %s", len(loaded_voices), args.voices)
+        return loaded_voices, next(iter(loaded_voices), None)
+
+    if args.ref_audio:
+        loaded_voices = {
+            "default": {
+                "ref_audio": args.ref_audio,
+                "ref_text": args.ref_text,
+                "language": args.language,
+            }
+        }
+        logger.info("Using single voice from --ref-audio: %s", args.ref_audio)
+        return loaded_voices, "default"
+
+    return {}, None
+
+
 def resolve_request_options(req: SpeechRequest) -> dict:
     """
     Map an OpenAI-compatible request onto the loaded Qwen3-TTS model surface.
@@ -544,29 +566,6 @@ def main():
     args = _parse_args()
     default_language = args.language
 
-    # Build voice registry
-    if args.voices:
-        with open(args.voices) as f:
-            voices = json.load(f)
-        default_voice = next(iter(voices))
-        logger.info("Loaded %d voice(s) from %s", len(voices), args.voices)
-    elif args.ref_audio:
-        voices = {
-            "default": {
-                "ref_audio": args.ref_audio,
-                "ref_text": args.ref_text,
-                "language": args.language,
-            }
-        }
-        default_voice = "default"
-        logger.info("Using single voice from --ref-audio: %s", args.ref_audio)
-    else:
-        print(
-            "ERROR: provide --ref-audio <file> or --voices <config.json>",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     from faster_qwen3_tts import FasterQwen3TTS
 
     logger.info("Loading model %s on %s …", args.model, args.device)
@@ -576,7 +575,18 @@ def main():
         dtype=torch.bfloat16,
     )
     SAMPLE_RATE = tts_model.sample_rate
-    if get_loaded_model_type() == "custom_voice" and not voices:
+    model_type = get_loaded_model_type()
+
+    voices, default_voice = build_voice_registry(args)
+
+    if model_type == "voice_clone" and not voices:
+        print(
+            "ERROR: voice-clone models require --ref-audio <file> or --voices <config.json>",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if model_type == "custom_voice" and not voices:
         speakers = get_supported_speakers()
         if speakers:
             default_voice = speakers[0]
@@ -585,6 +595,10 @@ def main():
                 "'voice'. Default speaker: %s",
                 default_voice,
             )
+    elif model_type == "voice_design" and not voices:
+        logger.info(
+            "VoiceDesign model detected; configure --voices if you want named voice presets"
+        )
     logger.info("Model ready. Sample rate: %d Hz", SAMPLE_RATE)
     logger.info("Server listening on http://%s:%d", args.host, args.port)
 
