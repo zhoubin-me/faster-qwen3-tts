@@ -98,3 +98,50 @@ def test_voice_design_requires_configured_instruction_profile():
 
     with pytest.raises(HTTPException, match="VoiceDesign models require --voices config entries"):
         openai_server.resolve_request_options(req)
+
+
+def test_language_is_detected_from_english_text_when_request_uses_auto():
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "Auto"
+
+    req = openai_server.SpeechRequest(
+        input="Hello world, this is a fairly normal English sentence.",
+        voice="aiden",
+        language="Auto",
+    )
+    options = openai_server.resolve_request_options(req)
+
+    assert options["language"] == "English"
+
+
+def test_language_is_detected_from_cjk_text():
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "Auto"
+
+    req = openai_server.SpeechRequest(
+        input="你好，今天过得怎么样？",
+        voice="aiden",
+    )
+    options = openai_server.resolve_request_options(req)
+
+    assert options["language"] == "Chinese"
+
+
+def test_explicit_language_is_not_overridden_by_detection():
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "Auto"
+
+    req = openai_server.SpeechRequest(
+        input="Hello world",
+        voice="aiden",
+        language="French",
+    )
+    options = openai_server.resolve_request_options(req)
+
+    assert options["language"] == "French"

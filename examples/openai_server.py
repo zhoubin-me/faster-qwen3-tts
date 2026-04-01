@@ -41,6 +41,7 @@ import json
 import logging
 import os
 import queue
+import re
 import struct
 import sys
 import threading
@@ -187,6 +188,44 @@ def get_supported_speakers() -> list[str]:
         return []
 
 
+def detect_language_from_text(text: str) -> Optional[str]:
+    """
+    Best-effort language detection for request text.
+
+    This is intentionally conservative. It only returns a language when the
+    script strongly suggests one; otherwise it returns None and the caller can
+    fall back to Auto/default behavior.
+    """
+    if not text:
+        return None
+
+    stripped = text.strip()
+    if len(stripped) < 2:
+        return None
+
+    if re.search(r"[\u3040-\u30ff]", stripped):
+        return "Japanese"
+    if re.search(r"[\uac00-\ud7af]", stripped):
+        return "Korean"
+    if re.search(r"[\u4e00-\u9fff]", stripped):
+        return "Chinese"
+    if re.search(r"[\u0400-\u04ff]", stripped):
+        return "Russian"
+    if re.search(r"[\u0600-\u06ff]", stripped):
+        return "Arabic"
+    if re.search(r"[\u0e00-\u0e7f]", stripped):
+        return "Thai"
+
+    latin_words = re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?", stripped)
+    if latin_words:
+        alpha_chars = sum(ch.isalpha() for ch in stripped)
+        latin_chars = sum(ch.isascii() and ch.isalpha() for ch in stripped)
+        if alpha_chars > 0 and latin_chars / alpha_chars >= 0.8 and len("".join(latin_words)) >= 6:
+            return "English"
+
+    return None
+
+
 def resolve_request_options(req: SpeechRequest) -> dict:
     """
     Map an OpenAI-compatible request onto the loaded Qwen3-TTS model surface.
@@ -201,7 +240,16 @@ def resolve_request_options(req: SpeechRequest) -> dict:
     model_type = get_loaded_model_type()
     requested_voice = (req.voice or "").strip()
     alias_cfg = voices.get(requested_voice, {})
-    language = req.language or alias_cfg.get("language") or default_language or "Auto"
+    requested_language = req.language
+    if requested_language and requested_language.lower() != "auto":
+        language = requested_language
+    else:
+        language = (
+            detect_language_from_text(req.input)
+            or alias_cfg.get("language")
+            or default_language
+            or "Auto"
+        )
 
     if model_type == "custom_voice":
         supported = {speaker.lower(): speaker for speaker in get_supported_speakers()}
