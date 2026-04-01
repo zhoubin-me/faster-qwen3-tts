@@ -148,7 +148,33 @@ curl http://localhost:8000/v1/audio/speech \
     --output speech.wav
 ```
 
-To expose multiple voices, pass a JSON file mapping names to reference audio configs — each `voice` value in a request will be routed to the matching entry (`--voices voices.json`). WAV and PCM formats stream chunks as they are generated; MP3 requires `pydub`.
+The server also accepts two repo-specific request fields:
+
+- `language`: override the generation language per request
+- `stream`: when `true`, stream WAV/PCM chunks as they are generated; when `false`, return one complete audio payload
+
+For `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`, the request `voice` field maps directly to the model speaker ID:
+
+```bash
+python examples/openai_server.py \
+    --model Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice \
+    --language English --port 8000
+```
+
+```bash
+curl http://localhost:8000/v1/audio/speech \
+    -H "Content-Type: application/json" \
+    -d '{"model": "tts-1", "input": "Hello world.", "voice": "aiden", "language": "English", "stream": false, "response_format": "wav"}' \
+    --output speech.wav
+```
+
+To expose multiple named voices, pass a JSON file with entries appropriate to the loaded model:
+
+- Voice clone: `{"alloy": {"ref_audio": "voice.wav", "ref_text": "...", "language": "English"}}`
+- CustomVoice aliases: `{"alloy": {"speaker": "aiden", "language": "English"}}`
+- VoiceDesign aliases: `{"narrator": {"instruct": "Warm, confident narrator", "language": "English"}}`
+
+WAV and PCM support both streaming and non-streaming. MP3 requires `pydub` and is non-streaming only.
 
 ## Results
 
