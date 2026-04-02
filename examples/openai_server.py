@@ -194,8 +194,9 @@ def detect_language_from_text(text: str) -> Optional[str]:
     Best-effort language detection for request text.
 
     This is intentionally conservative. It returns a language when the script
-    strongly suggests one, returns "Auto" for mixed-script input, and otherwise
-    returns None so the caller can fall back to config/default behavior.
+    strongly suggests one, prefers the dominant language for mixed-script input,
+    and otherwise returns None so the caller can fall back to config/default
+    behavior.
     """
     if not text:
         return None
@@ -204,51 +205,47 @@ def detect_language_from_text(text: str) -> Optional[str]:
     if len(stripped) < 2:
         return None
 
-    has_japanese = bool(re.search(r"[\u3040-\u30ff]", stripped))
-    has_korean = bool(re.search(r"[\uac00-\ud7af]", stripped))
-    has_chinese = bool(re.search(r"[\u4e00-\u9fff]", stripped))
-    has_russian = bool(re.search(r"[\u0400-\u04ff]", stripped))
-    has_arabic = bool(re.search(r"[\u0600-\u06ff]", stripped))
-    has_thai = bool(re.search(r"[\u0e00-\u0e7f]", stripped))
-
-    script_hits = sum(
-        int(flag)
-        for flag in (
-            has_japanese,
-            has_korean,
-            has_chinese,
-            has_russian,
-            has_arabic,
-            has_thai,
-        )
-    )
+    japanese_kana_count = len(re.findall(r"[\u3040-\u30ff]", stripped))
+    chinese_han_count = len(re.findall(r"[\u4e00-\u9fff]", stripped))
+    korean_count = len(re.findall(r"[\uac00-\ud7af]", stripped))
+    russian_count = len(re.findall(r"[\u0400-\u04ff]", stripped))
+    arabic_count = len(re.findall(r"[\u0600-\u06ff]", stripped))
+    thai_count = len(re.findall(r"[\u0e00-\u0e7f]", stripped))
 
     latin_words = re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?", stripped)
-    has_latin = False
-    if latin_words:
-        alpha_chars = sum(ch.isalpha() for ch in stripped)
-        latin_chars = sum(ch.isascii() and ch.isalpha() for ch in stripped)
-        if alpha_chars > 0 and latin_chars / alpha_chars >= 0.8 and len("".join(latin_words)) >= 6:
-            has_latin = True
+    latin_chars = sum(len(word) for word in latin_words)
+    english_score = 0
+    if latin_words and (latin_chars >= 6 or any(len(word) >= 4 for word in latin_words)):
+        english_score = latin_chars
 
-    if script_hits > 1 or (script_hits >= 1 and has_latin):
+    scores = {
+        "English": english_score,
+        "Korean": korean_count,
+        "Russian": russian_count,
+        "Arabic": arabic_count,
+        "Thai": thai_count,
+    }
+
+    if japanese_kana_count > 0:
+        # When kana is present, count adjacent Han characters as part of the
+        # Japanese signal so mixed Japanese text is not mistaken for Chinese.
+        scores["Japanese"] = japanese_kana_count + chinese_han_count
+        scores["Chinese"] = 0
+    else:
+        scores["Japanese"] = 0
+        scores["Chinese"] = chinese_han_count
+
+    dominant_score = max(scores.values())
+    if dominant_score <= 0:
+        return None
+
+    dominant_languages = [
+        language for language, score in scores.items() if score == dominant_score
+    ]
+    if len(dominant_languages) != 1:
         return "Auto"
-    if has_japanese:
-        return "Japanese"
-    if has_korean:
-        return "Korean"
-    if has_chinese:
-        return "Chinese"
-    if has_russian:
-        return "Russian"
-    if has_arabic:
-        return "Arabic"
-    if has_thai:
-        return "Thai"
-    if has_latin:
-        return "English"
 
-    return None
+    return dominant_languages[0]
 
 
 def build_voice_registry(args) -> tuple[dict, Optional[str]]:

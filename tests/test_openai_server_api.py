@@ -186,7 +186,7 @@ def test_language_is_detected_from_cjk_text():
     assert options["language"] == "Chinese"
 
 
-def test_mixed_input_uses_auto_language():
+def test_mixed_input_uses_dominant_language():
     _set_model_type("custom_voice")
     openai_server.voices = {}
     openai_server.default_voice = "aiden"
@@ -198,7 +198,22 @@ def test_mixed_input_uses_auto_language():
     )
     options = openai_server.resolve_request_options(req)
 
-    assert options["language"] == "Auto"
+    assert options["language"] == "English"
+
+
+def test_mixed_input_can_choose_non_latin_dominant_language():
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "English"
+
+    req = openai_server.SpeechRequest(
+        input="你好，今天过得怎么样？ hello",
+        voice="aiden",
+    )
+    options = openai_server.resolve_request_options(req)
+
+    assert options["language"] == "Chinese"
 
 
 def test_explicit_language_is_not_overridden_by_detection():
