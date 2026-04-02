@@ -230,3 +230,55 @@ def test_explicit_language_is_not_overridden_by_detection():
     options = openai_server.resolve_request_options(req)
 
     assert options["language"] == "French"
+
+
+def test_log_request_selection_uses_resolved_custom_voice_speaker(monkeypatch):
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "English"
+
+    req = openai_server.SpeechRequest(input="hello", voice="ava")
+    options = openai_server.resolve_request_options(req)
+    messages = []
+
+    monkeypatch.setattr(
+        openai_server.logger,
+        "info",
+        lambda msg, *args: messages.append(msg % args),
+    )
+
+    openai_server.log_request_selection(req, options)
+
+    assert messages == [
+        "TTS request: mode=custom_voice language=English speaker=ava"
+    ]
+
+
+def test_log_request_selection_uses_fallback_voice_clone_reference(monkeypatch):
+    _set_model_type("voice_clone")
+    openai_server.voices = {
+        "default": {
+            "ref_audio": "/tmp/demo-voice.wav",
+            "ref_text": "reference",
+            "language": "English",
+        }
+    }
+    openai_server.default_voice = "default"
+    openai_server.default_language = "Auto"
+
+    req = openai_server.SpeechRequest(input="hello world", voice="missing")
+    options = openai_server.resolve_request_options(req)
+    messages = []
+
+    monkeypatch.setattr(
+        openai_server.logger,
+        "info",
+        lambda msg, *args: messages.append(msg % args),
+    )
+
+    openai_server.log_request_selection(req, options)
+
+    assert messages == [
+        "TTS request: mode=voice_clone language=English speaker=demo-voice.wav"
+    ]

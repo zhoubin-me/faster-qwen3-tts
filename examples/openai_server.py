@@ -345,6 +345,39 @@ def resolve_request_options(req: SpeechRequest) -> dict:
     }
 
 
+def get_request_speaker_label(req: SpeechRequest, options: dict) -> str:
+    """Return the speaker/voice label that will be used for this request."""
+    if options["mode"] == "custom_voice":
+        return options["speaker"]
+
+    if options["mode"] == "voice_clone":
+        requested_voice = (req.voice or "").strip()
+        if requested_voice in voices:
+            return requested_voice
+        if default_voice and default_voice in voices:
+            if default_voice != "default":
+                return default_voice
+            ref_audio = options.get("ref_audio")
+            if ref_audio:
+                return os.path.basename(ref_audio)
+            return default_voice
+        ref_audio = options.get("ref_audio")
+        if ref_audio:
+            return os.path.basename(ref_audio)
+
+    return "n/a"
+
+
+def log_request_selection(req: SpeechRequest, options: dict):
+    """Log the resolved request language and speaker/voice selection."""
+    logger.info(
+        "TTS request: mode=%s language=%s speaker=%s",
+        options["mode"],
+        options["language"],
+        get_request_speaker_label(req, options),
+    )
+
+
 def run_non_streaming_generation(options: dict, text: str):
     """Generate full audio for the active model family."""
     with _model_lock:
@@ -491,6 +524,8 @@ async def create_speech(req: SpeechRequest, request: Request):
             status_code=400,
             detail="response_format='mp3' does not support streaming; use wav or pcm",
         )
+
+    log_request_selection(req, options)
 
     # --- Non-streaming: generate all audio and return one payload ---
     if not req.stream:
