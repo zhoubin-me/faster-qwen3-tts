@@ -69,6 +69,7 @@ tts_model = None
 voices: dict = {}
 default_voice: Optional[str] = None
 default_language: str = "Auto"
+default_instruct: str = "speak in a cheerful and energetic tone"
 SAMPLE_RATE = 24000  # updated once the model loads
 _model_lock = threading.Lock()  # prevent concurrent GPU inference
 _STREAM_QUEUE_MAXSIZE = 4
@@ -321,7 +322,7 @@ def resolve_request_options(req: SpeechRequest) -> dict:
             "mode": "custom_voice",
             "speaker": speaker,
             "language": language,
-            "instruct": alias_cfg.get("instruct"),
+            "instruct": alias_cfg.get("instruct") or default_instruct,
         }
 
     if model_type == "voice_design":
@@ -570,6 +571,14 @@ def _parse_args():
         default=os.environ.get("QWEN_TTS_LANGUAGE", "Auto"),
         help="Target language (English, French, Auto, …) when --voices is not used",
     )
+    p.add_argument(
+        "--instruct",
+        default=os.environ.get(
+            "QWEN_TTS_INSTRUCT",
+            "speak in a cheerful and energetic tone",
+        ),
+        help="Default instruction for models that accept style prompting",
+    )
     p.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     p.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
     p.add_argument("--device", default="cuda", help="Torch device (default: cuda)")
@@ -577,10 +586,11 @@ def _parse_args():
 
 
 def main():
-    global tts_model, voices, default_voice, default_language, SAMPLE_RATE
+    global tts_model, voices, default_voice, default_language, default_instruct, SAMPLE_RATE
 
     args = _parse_args()
     default_language = args.language
+    default_instruct = args.instruct
 
     from faster_qwen3_tts import FasterQwen3TTS
 

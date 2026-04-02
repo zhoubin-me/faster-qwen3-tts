@@ -27,6 +27,7 @@ def test_custom_voice_request_maps_voice_to_speaker_and_language_override():
     openai_server.voices = {}
     openai_server.default_voice = "aiden"
     openai_server.default_language = "English"
+    openai_server.default_instruct = "speak in a cheerful and energetic tone"
 
     req = openai_server.SpeechRequest(
         input="hello",
@@ -40,7 +41,7 @@ def test_custom_voice_request_maps_voice_to_speaker_and_language_override():
         "mode": "custom_voice",
         "speaker": "ava",
         "language": "Japanese",
-        "instruct": None,
+        "instruct": "speak in a cheerful and energetic tone",
     }
 
 
@@ -51,6 +52,7 @@ def test_custom_voice_alias_config_can_remap_voice_name():
     }
     openai_server.default_voice = "aiden"
     openai_server.default_language = "English"
+    openai_server.default_instruct = "speak in a cheerful and energetic tone"
 
     req = openai_server.SpeechRequest(input="hello", voice="alloy")
     options = openai_server.resolve_request_options(req)
@@ -61,6 +63,19 @@ def test_custom_voice_alias_config_can_remap_voice_name():
         "language": "French",
         "instruct": "calm",
     }
+
+
+def test_custom_voice_uses_default_instruction_when_alias_has_none():
+    _set_model_type("custom_voice")
+    openai_server.voices = {}
+    openai_server.default_voice = "aiden"
+    openai_server.default_language = "English"
+    openai_server.default_instruct = "speak in a cheerful and energetic tone"
+
+    req = openai_server.SpeechRequest(input="hello", voice="aiden")
+    options = openai_server.resolve_request_options(req)
+
+    assert options["instruct"] == "speak in a cheerful and energetic tone"
 
 
 def test_voice_clone_request_uses_profile_and_request_language_override():

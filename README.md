@@ -152,12 +152,14 @@ The server also accepts two repo-specific request fields:
 
 - `language`: override the generation language per request
 - `stream`: when `true`, stream WAV/PCM chunks as they are generated; when `false`, return one complete audio payload
+- `--instruct`: default style instruction for models that accept it; defaults to `speak in a cheerful and energetic tone`
 
 For `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`, the request `voice` field maps directly to the model speaker ID:
 
 ```bash
 python examples/openai_server.py \
     --model Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice \
+    --instruct "speak in a cheerful and energetic tone" \
     --language English --port 8000
 ```
 
